@@ -308,6 +308,7 @@
       <button class="banner-btn" onclick="forceSync()">🔄 Sincronizar Manual</button>
       <button class="banner-btn" id="btn-link-file" onclick="chooseExportFile()">📂 Vincular dados.txt</button>
       <button class="banner-btn" onclick="exportBackupData()">💾 Exportar dados.txt</button>
+      <button class="banner-btn" onclick="exportGridImage()">📸 Salvar Print dos 500</button>
     </div>
   </div>
 </div>
@@ -1034,6 +1035,158 @@ function switchView(tab) {
         document.getElementById('tab-raffle').classList.add('active');
         document.getElementById('raffle-view').style.display = 'block';
     }
+}
+
+// ── Print dos 500 números ─────────────────────────────────────────────────────
+function exportGridImage() {
+    updateBanner('warning', '🖼️ Gerando imagem dos 500 números...');
+
+    // Layout
+    const COLS       = 20;
+    const ROWS       = Math.ceil(TOTAL_NUMBERS / COLS); // 25
+    const CELL       = 72;   // tamanho de cada célula
+    const GAP        = 6;
+    const PAD_TOP    = 110;  // espaço para cabeçalho
+    const PAD_SIDE   = 28;
+    const PAD_BOT    = 70;   // espaço para rodapé
+
+    const W = COLS * CELL + (COLS - 1) * GAP + PAD_SIDE * 2;
+    const H = ROWS * CELL + (ROWS - 1) * GAP + PAD_TOP + PAD_BOT;
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    // ── fundo ──
+    const bg = ctx.createRadialGradient(W / 2, 0, 0, W / 2, H * 0.5, H);
+    bg.addColorStop(0,   '#145c33');
+    bg.addColorStop(0.6, '#0b3d22');
+    bg.addColorStop(1,   '#07210f');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // grade diagonal sutil
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.018)';
+    ctx.lineWidth = 1;
+    for (let x = -H; x < W + H; x += 55) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x + H, H);
+        ctx.stroke();
+    }
+    ctx.restore();
+
+    // ── cabeçalho ──
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 13px Oswald, sans-serif';
+    ctx.letterSpacing = '5px';
+    ctx.fillText('PAINEL DE CONTROLE', W / 2, 32);
+
+    ctx.fillStyle = '#f4efdd';
+    ctx.font = 'bold 36px "Bebas Neue", serif';
+    ctx.letterSpacing = '2px';
+    ctx.fillText('🏆 RIFA COPA DO MUNDO ⚽', W / 2, 72);
+
+    // stats
+    const soldCount = Object.keys(rifaData).length;
+    const availCount = TOTAL_NUMBERS - soldCount;
+    ctx.font = '600 12px Oswald, sans-serif';
+    ctx.letterSpacing = '1px';
+    ctx.fillStyle = '#9fb3a6';
+    ctx.fillText(
+        `${soldCount} VENDIDOS  ·  ${availCount} DISPONÍVEIS  ·  ${TOTAL_NUMBERS} TOTAL`,
+        W / 2, 96
+    );
+
+    // ── células ──
+    for (let i = 0; i < TOTAL_NUMBERS; i++) {
+        const numStr = String(i).padStart(3, '0');
+        const col = i % COLS;
+        const row = Math.floor(i / COLS);
+        const x = PAD_SIDE + col * (CELL + GAP);
+        const y = PAD_TOP  + row * (CELL + GAP);
+
+        const isSold = !!rifaData[numStr];
+
+        // sombra da célula
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.45)';
+        ctx.shadowBlur  = 6;
+        ctx.shadowOffsetY = 3;
+
+        // fundo da célula
+        ctx.beginPath();
+        roundRect(ctx, x, y, CELL, CELL, 6);
+        ctx.fillStyle = isSold ? '#b3262a' : '#0b3d22';
+        ctx.fill();
+
+        // borda
+        ctx.strokeStyle = isSold ? '#e0433f' : '#c9a800';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+
+        // número
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 22px "Bebas Neue", monospace';
+        ctx.letterSpacing = '1px';
+        ctx.fillStyle = isSold ? 'rgba(255,255,255,0.92)' : '#f4efdd';
+        ctx.fillText(numStr, x + CELL / 2, y + CELL / 2 + 1);
+
+        // status
+        ctx.font = '600 9px Oswald, sans-serif';
+        ctx.letterSpacing = '0.5px';
+        ctx.fillStyle = isSold ? 'rgba(255,255,255,0.5)' : '#7e9588';
+        ctx.fillText(isSold ? 'OCUPADO' : 'LIVRE', x + CELL / 2, y + CELL / 2 + 17);
+
+        // nome do comprador (truncado) se vendido
+        if (isSold && rifaData[numStr].name) {
+            const name = rifaData[numStr].name;
+            ctx.font = '500 7.5px Oswald, sans-serif';
+            ctx.letterSpacing = '0px';
+            ctx.fillStyle = 'rgba(255,255,255,0.65)';
+            const maxChars = 9;
+            const display = name.length > maxChars ? name.slice(0, maxChars - 1) + '…' : name;
+            ctx.fillText(display, x + CELL / 2, y + CELL / 2 - 13);
+        }
+    }
+
+    // ── rodapé ──
+    const now = new Date();
+    const dateStr = now.toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
+    ctx.textAlign = 'center';
+    ctx.font = '500 11px Oswald, sans-serif';
+    ctx.letterSpacing = '1px';
+    ctx.fillStyle = '#4d6256';
+    ctx.fillText(`Gerado em ${dateStr}  ·  Rifa Copa do Mundo © Painel de Controle`, W / 2, H - 22);
+
+    // ── download ──
+    const link = document.createElement('a');
+    link.download = `rifa-${dateStr.replace(/[/:, ]/g, '-')}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    updateBanner('success', '✅ Imagem salva! Verifique sua pasta de downloads.');
+}
+
+// helper: rect com bordas arredondadas (compatível sem Path2D roundRect)
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
 }
 
 // ── Sorteio ───────────────────────────────────────────────────────────────────
