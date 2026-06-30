@@ -298,7 +298,7 @@
 <header>
   <p class="eyebrow">Painel de Controle</p>
   <h1>🏆 Rifa <span class="accent">Copa do Mundo</span> ⚽</h1>
-  <div class="subtitle">Quinhentos números, um sorteio. Gerencie vendas e realize o sorteio oficial.</div>
+  <div class="subtitle">Setecentos e cinquenta números, um sorteio. Gerencie vendas e realize o sorteio oficial.</div>
 </header>
 
 <div class="storage-box">
@@ -308,15 +308,16 @@
       <button class="banner-btn" onclick="forceSync()">🔄 Sincronizar Manual</button>
       <button class="banner-btn" id="btn-link-file" onclick="chooseExportFile()">📂 Vincular dados.txt</button>
       <button class="banner-btn" onclick="exportBackupData()">💾 Exportar dados.txt</button>
-      <button class="banner-btn" onclick="exportGridImage()">📸 Salvar Print dos 500</button>
+      <button class="banner-btn" onclick="exportGridImage()">📸 Salvar Print dos 750</button>
+      <button class="banner-btn" style="border-color: var(--sold-border); color: #ff9999;" onclick="clearAllData()">🗑️ Limpar Tudo</button>
     </div>
   </div>
 </div>
 
 <div class="controls">
-  <div class="stat-item"><div id="stat-total" class="stat-val">500</div><div class="stat-lbl">Números</div></div>
+  <div class="stat-item"><div id="stat-total" class="stat-val">750</div><div class="stat-lbl">Números</div></div>
   <div class="stat-item"><div id="stat-sold" class="stat-val">0</div><div class="stat-lbl">Vendidos</div></div>
-  <div class="stat-item"><div id="stat-available" class="stat-val">500</div><div class="stat-lbl">Disponíveis</div></div>
+  <div class="stat-item"><div id="stat-available" class="stat-val">750</div><div class="stat-lbl">Disponíveis</div></div>
 </div>
 
 <div id="search-container-wrapper" class="search-container">
@@ -420,7 +421,7 @@
     <div class="random-qty-row">
       <div class="form-group">
         <label for="rnd-qty">Quantidade de números</label>
-        <input type="number" id="rnd-qty" class="form-control" placeholder="Ex: 60" min="1" max="500" style="font-size: 1.1rem; font-weight: 700;">
+        <input type="number" id="rnd-qty" class="form-control" placeholder="Ex: 60" min="1" max="750" style="font-size: 1.1rem; font-weight: 700;">
       </div>
       <button id="btn-generate-random" onclick="generateRandomNumbers()">🎲 Gerar</button>
     </div>
@@ -461,7 +462,7 @@
 
 <script>
 const FIREBASE_URL = 'https://rifa-ed274-default-rtdb.firebaseio.com';
-const TOTAL_NUMBERS = 500;
+const TOTAL_NUMBERS = 750;
 const ADMIN_PIN = '1234';
 
 let rifaData = {};
@@ -852,6 +853,29 @@ async function directRelease(num) {
         delete rifaData[num];
         renderData();
         await patchFirebase({ [num]: null });
+    }
+}
+
+async function clearAllData() {
+    if (!confirm('⚠️ Tem certeza que deseja LIMPAR TODOS os dados da rifa?\n\nTodos os números vendidos serão liberados e os dados serão apagados do Firebase e do armazenamento local.\n\nEssa ação NÃO pode ser desfeita!')) return;
+    if (!confirm('🚨 Confirmação final: apagar TUDO mesmo?')) return;
+
+    rifaData = {};
+    renderData();
+    localStorage.removeItem('local_backup_rifa');
+
+    updateBanner('warning', '🗑️ Apagando todos os dados do Firebase...');
+    try {
+        const response = await fetch(`${FIREBASE_URL}/rifaData.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(null)
+        });
+        if (!response.ok) throw new Error('Erro ao apagar no Firebase.');
+        updateBanner('success', '✅ Todos os dados foram apagados com sucesso!');
+    } catch (err) {
+        console.error(err);
+        updateBanner('error', '⚠️ Dados locais apagados, mas houve erro ao limpar o Firebase. Verifique sua conexão.');
     }
 }
 
